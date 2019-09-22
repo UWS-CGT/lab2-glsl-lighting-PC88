@@ -26,6 +26,7 @@ uniform sampler2D textureUnit0;
 in vec3 ex_N;
 in vec3 ex_V;
 in vec3 ex_L;
+in float ex_Att;
 in vec2 ex_TexCoord;
 layout(location = 0) out vec4 out_Color;
  
@@ -46,6 +47,13 @@ void main(void) {
 	specularI = specularI * pow(max(dot(R,ex_V),0), material.shininess);
 
 	// Fragment colour
-	out_Color = (ambientI + diffuseI + specularI) * texture(textureUnit0, ex_TexCoord);
-	//out_Color = texture2D(textureUnit0, ex_TexCoord);
+	// out_Color = (ambientI + diffuseI + specularI) * texture(textureUnit0, ex_TexCoord);
+	
+	vec4 tmp_Color = (diffuseI + specularI);
+	vec4 litColour = ambientI+vec4(tmp_Color.rgb / ex_Att, 1.0);
+
+	out_Color = litColour * texture(textureUnit0, ex_TexCoord);
+
+	// out_Color = (ambientI + diffuseI + specularI) * att
+	// out_Color = texture2D(textureUnit0, ex_TexCoord);
 }

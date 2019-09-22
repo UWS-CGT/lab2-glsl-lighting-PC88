@@ -8,18 +8,25 @@ uniform mat4 projection;
 uniform vec4 lightPosition;
 //uniform mat3 normalmatrix;
 
+// attenuation values from slides
+uniform float attConst;
+uniform float attLinear;
+uniform float attQuadratic;
+
 in  vec3 in_Position;
 in  vec3 in_Normal;
 out vec3 ex_N;
 out vec3 ex_V;
 out vec3 ex_L;
+out float ex_Att;
 
 in vec2 in_TexCoord;
 out vec2 ex_TexCoord;
 
 // multiply each vertex position by the MVP matrix
 // and find V, L, N vectors for the fragment shader
-void main(void) {
+void main(void) 
+{
 
 	// vertex into eye coordinates
 	vec4 vertexPosition = modelview * vec4(in_Position,1.0);
@@ -39,6 +46,13 @@ void main(void) {
 	ex_L = normalize(lightPosition.xyz - vertexPosition.xyz);
 
 	ex_TexCoord = in_TexCoord;
+
+	// distance
+	float distance = distance(vertexPosition, lightPosition);
+
+	// lab slides code
+	// attenuation does not affect ambient light 
+	ex_Att = attConst + attLinear * distance + attQuadratic * distance * distance;
 
     gl_Position = projection * vertexPosition;
 

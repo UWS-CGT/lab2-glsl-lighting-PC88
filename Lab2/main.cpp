@@ -27,12 +27,14 @@ using namespace std;
 
 GLuint meshIndexCount = 0;
 GLuint md2VertCount = 0;
-GLuint meshObjects[2];
+GLuint meshObjects[4];
 
 GLuint shaderProgram;
 GLuint skyboxProgram;
 
 GLfloat r = 0.0f;
+
+float attQuadratic = 0.01; // lab value magic numbers
 
 glm::vec3 eye(0.0f, 1.0f, 0.0f);
 glm::vec3 at(0.0f, 1.0f, -1.0f);
@@ -51,7 +53,7 @@ rt3d::lightStruct light0 = {
 	{1.0f, 1.0f, 1.0f, 1.0f}, // specular
 	{-10.0f, 10.0f, 10.0f, 1.0f}  // position
 };
-glm::vec4 lightPos(-10.0f, 10.0f, 10.0f, 1.0f); //light position
+glm::vec4 lightPos(-10.0f, 10.0f, 10.0f, 1.0f); //light position // modified by input for lab2 - so as to be controlled by user input
 
 rt3d::materialStruct material0 = {
 	{0.2f, 0.4f, 0.2f, 1.0f}, // ambient
@@ -200,6 +202,8 @@ void init(void) {
 
 	skyboxProgram = rt3d::initShaders("textured.vert","textured.frag");
 
+	/////// objects ///////// -- add additional objects to the scene
+	// object one
 	vector<GLfloat> verts;
 	vector<GLfloat> norms;
 	vector<GLfloat> tex_coords;
@@ -208,19 +212,22 @@ void init(void) {
 	GLuint size = indices.size();
 	meshIndexCount = size;
 	textures[0] = loadBitmap("resources/fabric.bmp");
-	meshObjects[0] = rt3d::createMesh(verts.size()/3, verts.data(), nullptr, norms.data(), tex_coords.data(), size, indices.data());
+	meshObjects[0] = rt3d::createMesh(verts.size() / 3, verts.data(), nullptr, norms.data(), tex_coords.data(), size, indices.data());
+	meshObjects[2] = rt3d::createMesh(verts.size() / 3, verts.data(), nullptr, norms.data(), tex_coords.data(), size, indices.data());
+	meshObjects[3] = rt3d::createMesh(verts.size() / 3, verts.data(), nullptr, norms.data(), tex_coords.data(), size, indices.data());
+
+
+
 
 	textures[1] = loadBitmap("resources/hobgoblin2.bmp");
 	meshObjects[1] = tmpModel.ReadMD2Model("resources/tris.MD2");
 	md2VertCount = tmpModel.getVertDataCount();
 
-	
-	
 	skybox[0] = loadBitmap("resources/Town-skybox/Town_ft.bmp");
 	skybox[1] = loadBitmap("resources/Town-skybox/Town_bk.bmp");
 	skybox[2] = loadBitmap("resources/Town-skybox/Town_lf.bmp");
 	skybox[3] = loadBitmap("resources/Town-skybox/Town_rt.bmp");
-	//skybox[4] = loadBitmap("Town-skybox/Town_up.bmp");
+	//skybox[4] = loadBitmap("resources/Town-skybox/Town2_up.bmp");
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
@@ -229,7 +236,7 @@ void init(void) {
 
 	// set up TrueType / SDL_ttf
 	if (TTF_Init()== -1)
-		cout << "TTF failed to initialise." << endl;
+		cout << "TTF failed to initialize." << endl;
 
 	textFont = TTF_OpenFont("resources/MavenPro-Regular.ttf", 48);
 	if (textFont == NULL)
@@ -249,12 +256,53 @@ glm::vec3 moveRight(glm::vec3 pos, GLfloat angle, GLfloat d) {
 
 void update(void) {
 	const Uint8 *keys = SDL_GetKeyboardState(NULL);
-	if ( keys[SDL_SCANCODE_W] ) eye = moveForward(eye,r,0.1f);
-	if ( keys[SDL_SCANCODE_S] ) eye = moveForward(eye,r,-0.1f);
-	if ( keys[SDL_SCANCODE_A] ) eye = moveRight(eye,r,-0.1f);
-	if ( keys[SDL_SCANCODE_D] ) eye = moveRight(eye,r,0.1f);
-	if ( keys[SDL_SCANCODE_R] ) eye.y += 0.1;
-	if ( keys[SDL_SCANCODE_F] ) eye.y -= 0.1;
+
+	// move camera
+	if (keys[SDL_SCANCODE_W])
+	{
+		eye = moveForward(eye, r, 0.1f);
+	}
+	if (keys[SDL_SCANCODE_S])
+	{
+		eye = moveForward(eye, r, -0.1f);
+	}
+	if (keys[SDL_SCANCODE_A])
+	{
+		eye = moveRight(eye, r, -0.1f);
+	}
+	if (keys[SDL_SCANCODE_D])
+	{
+		eye = moveRight(eye, r, 0.1f);
+	}
+	if (keys[SDL_SCANCODE_R])
+	{
+		eye.y += 0.1;
+	}
+	if (keys[SDL_SCANCODE_F])
+	{
+		eye.y -= 0.1;
+	}
+
+	// "defining the light" - 2 thus moving the values of the light.
+	// the user can now "define" values of the light
+	if (keys[SDL_SCANCODE_3])
+	{
+		lightPos.r -= 1.0;
+	}
+	if (keys[SDL_SCANCODE_4])
+	{
+		lightPos.g -= 1.0;
+	}
+	if (keys[SDL_SCANCODE_5])
+	{
+		lightPos.b -= 1.0;
+	}
+
+	// modify attenuation last lab aspect
+	if (keys[SDL_SCANCODE_9])
+	{
+		attQuadratic += 0.001f;
+	}
 
 	if ( keys[SDL_SCANCODE_COMMA] ) r -= 1.0f;
 	if ( keys[SDL_SCANCODE_PERIOD] ) r += 1.0f;
@@ -363,6 +411,25 @@ void draw(SDL_Window * window) {
 	light0.position[2] = tmp.z;
 	rt3d::setLightPos(shaderProgram, glm::value_ptr(tmp));
 
+	/// ------------------ attenuation values ------------------ ///
+	// set attenuation equation values, and pass a blank uniform to store the value of attenuation
+	// which can then be manipulated CPU side
+
+	// the constant value added to the bottom term in the equation:
+	float attConst = 1.0f; // lab value magic numbers
+	int ID2 = glGetUniformLocation(shaderProgram, "attConst");
+	glUniform1f(ID2, attConst);
+
+	// the constant value linearly associated with distance added to the bottom term in the equation:
+	float attLinear = 0.02f; // lab value magic numbers
+	int ID3 = glGetUniformLocation(shaderProgram, "attLinear");
+	glUniform1f(ID3, attLinear);
+
+	// the constant value quadratically associated with distance added to the bottom term in the equation:
+	int ID4 = glGetUniformLocation(shaderProgram, "attQuadratic");
+	glUniform1f(ID4, attQuadratic);
+	/// ------------------ attenuation values ------------------ ///
+
 
 	rt3d::setUniformMatrix4fv(shaderProgram, "projection", glm::value_ptr(projection));
 
@@ -375,6 +442,26 @@ void draw(SDL_Window * window) {
 	rt3d::setUniformMatrix4fv(shaderProgram, "modelview", glm::value_ptr(mvStack.top()));
 	rt3d::setMaterial(shaderProgram, material0);
 	rt3d::drawIndexedMesh(meshObjects[0],meshIndexCount,GL_TRIANGLES);
+	mvStack.pop();
+
+	// draw second cube -  which sits on the lights position.
+	glBindTexture(GL_TEXTURE_2D, textures[0]);
+	mvStack.push(mvStack.top());
+	mvStack.top() = glm::translate(mvStack.top(), glm::vec3(lightPos.x, lightPos.y, lightPos.z));
+	mvStack.top() = glm::scale(mvStack.top(), glm::vec3(1.0f, 1.0f, 1.0f));
+	rt3d::setUniformMatrix4fv(shaderProgram, "modelview", glm::value_ptr(mvStack.top()));
+	rt3d::setMaterial(shaderProgram, material0);
+	rt3d::drawIndexedMesh(meshObjects[2], meshIndexCount, GL_TRIANGLES);
+	mvStack.pop();
+
+	// draw third cube
+	glBindTexture(GL_TEXTURE_2D, textures[0]);
+	mvStack.push(mvStack.top());
+	mvStack.top() = glm::translate(mvStack.top(), glm::vec3(1.0f, 1.2f, -6.0f)); // arbitrary vaLues seen as magic numbers are all over the code already
+	mvStack.top() = glm::scale(mvStack.top(), glm::vec3(4.0f, 4.1f, 0.0f));
+	rt3d::setUniformMatrix4fv(shaderProgram, "modelview", glm::value_ptr(mvStack.top()));
+	rt3d::setMaterial(shaderProgram, material0);
+	rt3d::drawIndexedMesh(meshObjects[3], meshIndexCount, GL_TRIANGLES);
 	mvStack.pop();
 
 	// Animate the md2 model, and update the mesh with new vertex data
@@ -398,7 +485,7 @@ void draw(SDL_Window * window) {
 
 
 	
-	glUseProgram(skyboxProgram);//Use the texture shader again to draw the labelled cube
+	glUseProgram(skyboxProgram);//Use the texture shader again to draw the labeled cube
 	rt3d::setUniformMatrix4fv(skyboxProgram, "projection", glm::value_ptr(projection));
 	// draw a cube block on top of ground plane
 	// with text texture 
